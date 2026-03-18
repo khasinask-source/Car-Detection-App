@@ -1,6 +1,9 @@
 import streamlit as st
 import cv2
 import tempfile
+import os
+
+st.set_page_config(page_title="Car Detection AI", layout="wide")
 
 st.title("🚗 Car Detection AI App")
 st.write("Detect cars in videos using OpenCV Haar Cascade")
@@ -15,44 +18,79 @@ option = st.sidebar.selectbox(
 )
 
 # -----------------------------
+# Function to process video
+# -----------------------------
+def process_video(input_path, output_path):
+
+    cap = cv2.VideoCapture(input_path)
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    car_count = 0
+
+    while cap.isOpened():
+
+        ret, frame = cap.read()
+
+        if not ret:
+            break
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        cars = car_classifier.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=3,
+            minSize=(30,30)
+        )
+
+        for (x,y,w,h) in cars:
+            cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
+            car_count += 1
+
+        out.write(frame)
+
+    cap.release()
+    out.release()
+
+    return car_count
+
+
+# -----------------------------
 # SAMPLE VIDEO
 # -----------------------------
 if option == "Use Sample Video":
 
+    video_path = "sample_video/cars.mp4"
+
     st.subheader("Sample Car Detection Video")
 
-    if st.button("▶ Start Car Detection"):
+    if st.button("▶ Start Detection"):
 
-        video_path = "sample_video/sample video.mp4"
+        st.info("Processing video... Please wait.")
 
-        cap = cv2.VideoCapture(video_path)
+        output_video = "output_sample.mp4"
 
-        stframe = st.empty()
+        car_count = process_video(video_path, output_video)
 
-        while cap.isOpened():
+        st.success("Detection Completed!")
 
-            ret, frame = cap.read()
+        st.subheader("Processed Video")
+        st.video(output_video)
 
-            if not ret:
-                break
+        st.metric("Cars Detected", car_count)
 
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            cars = car_classifier.detectMultiScale(
-                gray,
-                scaleFactor=1.1,
-                minNeighbors=3,
-                minSize=(30,30)
+        with open(output_video, "rb") as file:
+            st.download_button(
+                "⬇ Download Processed Video",
+                file,
+                file_name="car_detection_output.mp4"
             )
-
-            for (x,y,w,h) in cars:
-                cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
-
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            stframe.image(frame,channels="RGB")
-
-        cap.release()
 
 
 # -----------------------------
@@ -72,31 +110,22 @@ elif option == "Upload Your Own Video":
             tfile = tempfile.NamedTemporaryFile(delete=False)
             tfile.write(uploaded_video.read())
 
-            cap = cv2.VideoCapture(tfile.name)
+            st.info("Processing video... Please wait.")
 
-            stframe = st.empty()
+            output_video = "output_upload.mp4"
 
-            while cap.isOpened():
+            car_count = process_video(tfile.name, output_video)
 
-                ret, frame = cap.read()
+            st.success("Detection Completed!")
 
-                if not ret:
-                    break
+            st.subheader("Processed Video")
+            st.video(output_video)
 
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            st.metric("Cars Detected", car_count)
 
-                cars = car_classifier.detectMultiScale(
-                    gray,
-                    scaleFactor=1.1,
-                    minNeighbors=3,
-                    minSize=(30,30)
+            with open(output_video, "rb") as file:
+                st.download_button(
+                    "⬇ Download Processed Video",
+                    file,
+                    file_name="car_detection_output.mp4"
                 )
-
-                for (x,y,w,h) in cars:
-                    cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
-
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-                stframe.image(frame,channels="RGB")
-
-            cap.release()
