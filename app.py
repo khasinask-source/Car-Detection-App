@@ -1,37 +1,28 @@
 import streamlit as st
 import cv2
+from ultralytics import YOLO
 import tempfile
-import os
 
-st.set_page_config(page_title="Car Detection AI", layout="wide")
+st.title("🚦 AI Traffic Monitoring System")
 
-st.title("🚗 Car Detection AI App")
-st.write("Detect cars in videos using OpenCV Haar Cascade")
+st.write("Vehicle detection, classification and counting")
 
-# Load classifier
-car_classifier = cv2.CascadeClassifier("haarcascades/haarcascade_car.xml")
+model = YOLO("yolov8n.pt")
 
-# Sidebar
 option = st.sidebar.selectbox(
     "Choose Video Source",
-    ("Use Sample Video", "Upload Your Own Video")
+    ("Use Sample Traffic Video", "Upload Traffic Video")
 )
 
-# -----------------------------
-# Function to process video
-# -----------------------------
-def process_video(input_path, output_path):
+def process_video(video_path):
 
-    cap = cv2.VideoCapture(input_path)
-
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    cap = cv2.VideoCapture(video_path)
 
     car_count = 0
+    truck_count = 0
+    bus_count = 0
+
+    stframe = st.empty()
 
     while cap.isOpened():
 
@@ -40,92 +31,71 @@ def process_video(input_path, output_path):
         if not ret:
             break
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        results = model(frame)
 
-        cars = car_classifier.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=3,
-            minSize=(30,30)
-        )
+        for r in results:
 
-        for (x,y,w,h) in cars:
-            cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
-            car_count += 1
+            boxes = r.boxes
 
-        out.write(frame)
+            for box in boxes:
+
+                cls = int(box.cls[0])
+                label = model.names[cls]
+
+                x1,y1,x2,y2 = map(int, box.xyxy[0])
+
+                cv2.rectangle(frame,(x1,y1),(x2,y2),(0,255,0),2)
+
+                cv2.putText(frame,label,(x1,y1-10),
+                            cv2.FONT_HERSHEY_SIMPLEX,0.6,(0,255,0),2)
+
+                if label == "car":
+                    car_count += 1
+                elif label == "truck":
+                    truck_count += 1
+                elif label == "bus":
+                    bus_count += 1
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        stframe.image(frame)
 
     cap.release()
-    out.release()
 
-    return car_count
+    return car_count, truck_count, bus_count
 
 
-# -----------------------------
 # SAMPLE VIDEO
-# -----------------------------
-if option == "Use Sample Video":
+if option == "Use Sample Traffic Video":
 
-    video_path = "sample_video/cars.mp4"
+    video_path = "sample_video/traffic.mp4"
 
-    st.subheader("Sample Car Detection Video")
+    if st.button("Start Traffic Monitoring"):
 
-    if st.button("▶ Start Detection"):
+        cars, trucks, buses = process_video(video_path)
 
-        st.info("Processing video... Please wait.")
+        st.subheader("Traffic Statistics")
 
-        output_video = "output_sample.mp4"
-
-        car_count = process_video(video_path, output_video)
-
-        st.success("Detection Completed!")
-
-        st.subheader("Processed Video")
-        st.video(output_video)
-
-        st.metric("Cars Detected", car_count)
-
-        with open(output_video, "rb") as file:
-            st.download_button(
-                "⬇ Download Processed Video",
-                file,
-                file_name="car_detection_output.mp4"
-            )
+        st.metric("Cars", cars)
+        st.metric("Trucks", trucks)
+        st.metric("Buses", buses)
 
 
-# -----------------------------
 # UPLOAD VIDEO
-# -----------------------------
-elif option == "Upload Your Own Video":
+else:
 
-    uploaded_video = st.file_uploader(
-        "Upload a video (Recommended under 1 minute)",
-        type=["mp4","avi","mov"]
-    )
+    uploaded_video = st.file_uploader("Upload Traffic Video")
 
-    if uploaded_video is not None:
+    if uploaded_video:
 
-        if st.button("▶ Start Detection"):
+        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile.write(uploaded_video.read())
 
-            tfile = tempfile.NamedTemporaryFile(delete=False)
-            tfile.write(uploaded_video.read())
+        if st.button("Start Monitoring"):
 
-            st.info("Processing video... Please wait.")
+            cars, trucks, buses = process_video(tfile.name)
 
-            output_video = "output_upload.mp4"
+            st.subheader("Traffic Statistics")
 
-            car_count = process_video(tfile.name, output_video)
-
-            st.success("Detection Completed!")
-
-            st.subheader("Processed Video")
-            st.video(output_video)
-
-            st.metric("Cars Detected", car_count)
-
-            with open(output_video, "rb") as file:
-                st.download_button(
-                    "⬇ Download Processed Video",
-                    file,
-                    file_name="car_detection_output.mp4"
-                )
+            st.metric("Cars", cars)
+            st.metric("Trucks", trucks)
+            st.metric("Buses", buses)
