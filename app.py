@@ -8,66 +8,24 @@ st.write("Detect cars in videos using OpenCV Haar Cascade")
 # Load classifier
 car_classifier = cv2.CascadeClassifier("haarcascades/haarcascade_car.xml")
 
-# Sidebar option
+# Sidebar
 option = st.sidebar.selectbox(
     "Choose Video Source",
     ("Use Sample Video", "Upload Your Own Video")
 )
 
-# -------------------------
-# SAMPLE VIDEO OPTION
-# -------------------------
+# -----------------------------
+# SAMPLE VIDEO
+# -----------------------------
 if option == "Use Sample Video":
 
-    video_path = "sample_video/cars.mp4"
-    st.write("### Sample Car Detection Video")
+    st.subheader("Sample Car Detection Video")
 
-    cap = cv2.VideoCapture(video_path)
+    if st.button("▶ Start Car Detection"):
 
-    stframe = st.empty()
+        video_path = "sample_video/cars.mp4"
 
-    while cap.isOpened():
-
-        ret, frame = cap.read()
-
-        if not ret:
-            break
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        cars = car_classifier.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=3,
-            minSize=(30,30)
-        )
-
-        for (x,y,w,h) in cars:
-            cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
-
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        stframe.image(frame, channels="RGB")
-
-    cap.release()
-
-
-# -------------------------
-# UPLOAD VIDEO OPTION
-# -------------------------
-elif option == "Upload Your Own Video":
-
-    uploaded_video = st.file_uploader(
-        "Upload a video (Recommended: under 1 minute)",
-        type=["mp4","avi","mov"]
-    )
-
-    if uploaded_video is not None:
-
-        tfile = tempfile.NamedTemporaryFile(delete=False)
-        tfile.write(uploaded_video.read())
-
-        cap = cv2.VideoCapture(tfile.name)
+        cap = cv2.VideoCapture(video_path)
 
         stframe = st.empty()
 
@@ -92,6 +50,53 @@ elif option == "Upload Your Own Video":
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            stframe.image(frame, channels="RGB")
+            stframe.image(frame,channels="RGB")
 
         cap.release()
+
+
+# -----------------------------
+# UPLOAD VIDEO
+# -----------------------------
+elif option == "Upload Your Own Video":
+
+    uploaded_video = st.file_uploader(
+        "Upload a video (Recommended under 1 minute)",
+        type=["mp4","avi","mov"]
+    )
+
+    if uploaded_video is not None:
+
+        if st.button("▶ Start Detection"):
+
+            tfile = tempfile.NamedTemporaryFile(delete=False)
+            tfile.write(uploaded_video.read())
+
+            cap = cv2.VideoCapture(tfile.name)
+
+            stframe = st.empty()
+
+            while cap.isOpened():
+
+                ret, frame = cap.read()
+
+                if not ret:
+                    break
+
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+                cars = car_classifier.detectMultiScale(
+                    gray,
+                    scaleFactor=1.1,
+                    minNeighbors=3,
+                    minSize=(30,30)
+                )
+
+                for (x,y,w,h) in cars:
+                    cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
+
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+                stframe.image(frame,channels="RGB")
+
+            cap.release()
