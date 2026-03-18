@@ -23,7 +23,7 @@ if option == "Use Sample Video":
 
     if st.button("▶ Start Car Detection"):
 
-        video_path = "sample_video/cars.mp4"
+        video_path = "sample_video/sample video.mp4"
 
         cap = cv2.VideoCapture(video_path)
 
